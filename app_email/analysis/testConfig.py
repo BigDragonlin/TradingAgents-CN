@@ -26,7 +26,7 @@ from cli.models import AnalystType
 # }
 
 CONFIG ={
-    "ticker": "000001",
+    "ticker": "600276",
     "market": {
         "name": "A股",
         "name_en": "China A-Share",
@@ -43,13 +43,13 @@ CONFIG ={
     "analysis_date": "2025-08-29",
     "analysts": [
         AnalystType.MARKET,
-        # AnalystType.SOCIAL,
-        # AnalystType.NEWS,
-        # AnalystType.FUNDAMENTALS,
+        AnalystType.SOCIAL,
+        AnalystType.NEWS,
+        AnalystType.FUNDAMENTALS,
     ],
     "research_depth": 1,
     "llm_provider": "deepseek v3",
     "backend_url": "https://api.deepseek.com",
     "shallow_thinker": "deepseek-chat",
-    "deep_thinker": "deepseek-chat"
+    "deep_thinker": "deepseek-reasoner"
 }
