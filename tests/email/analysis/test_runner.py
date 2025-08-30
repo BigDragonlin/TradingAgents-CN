@@ -3,7 +3,7 @@ import types
 
 
 def test_runner_importable():
-    import email.analysis.runner as runner
+    import app_email.analysis.runner as runner
     assert hasattr(runner, "run")
 
 
@@ -17,7 +17,7 @@ class DummyGraph:
 
 
 def test_runner_run_monkeypatched(monkeypatch):
-    import email.analysis.runner as runner
+    import app_email.analysis.runner as runner
 
     def fake_graph(*args, **kwargs):
         return DummyGraph(*args, **kwargs)
@@ -26,7 +26,7 @@ def test_runner_run_monkeypatched(monkeypatch):
 
     # 替换 TradingAgentsGraph 为 DummyGraph
     monkeypatch.setattr(
-        "email.analysis.runner.TradingAgentsGraph", fake_graph, raising=True
+        "app_email.analysis.runner.TradingAgentsGraph", fake_graph, raising=True
     )
 
     decision = runner.run()
