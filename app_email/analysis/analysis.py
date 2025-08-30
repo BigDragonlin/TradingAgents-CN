@@ -17,6 +17,7 @@ from .layout import create_layout, update_display
 from .keys import check_api_keys
 from .report import display_complete_report
 from .selections import get_user_selections
+from .testConfig import CONFIG
 from .ui import CLIUserInterface
 
 
@@ -30,7 +31,8 @@ def run_analysis():
     ui = CLIUserInterface()
     console = Console()
 
-    selections = get_user_selections(console)
+    # selections = get_user_selections(console)
+    selections = CONFIG
     if not check_api_keys(selections["llm_provider"]):
         ui.show_error("分析终止 | Analysis terminated")
         return
@@ -127,7 +129,7 @@ def run_analysis():
 
     layout = create_layout()
 
-    
+
     from rich.live import Live
     with Live(layout, refresh_per_second=DEFAULT_REFRESH_RATE) as live:
         update_display(layout, message_buffer)
