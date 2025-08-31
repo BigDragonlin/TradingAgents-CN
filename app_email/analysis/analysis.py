@@ -3,6 +3,7 @@ from tradingagents.utils.logging_manager import get_logger
 from .keys import check_api_keys
 from .testConfig import CONFIG
 from .pipeline import AnalysisPipeline
+from app_email.send_email.make_report2doc import MakeReport2Doc
 logger = get_logger("cli")
 
 
@@ -34,6 +35,9 @@ def run_analysis():
     trace = pipeline.run_stream()
     pipeline.process_decision(trace)
     pipeline.generate_report()
+
+    make_report2doc = MakeReport2Doc()
+    make_report2doc.make_report2doc(selections['ticker'])
 
     total_time = time.time() - start_time
     logger.info(f"⏱️ 总分析时间: {total_time:.1f}秒")

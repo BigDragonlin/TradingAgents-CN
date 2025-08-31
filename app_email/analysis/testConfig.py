@@ -43,9 +43,9 @@ CONFIG ={
     "analysis_date": "2025-08-29",
     "analysts": [
         AnalystType.MARKET,
-        AnalystType.SOCIAL,
-        AnalystType.NEWS,
-        AnalystType.FUNDAMENTALS,
+        # AnalystType.SOCIAL,
+        # AnalystType.NEWS,
+        # AnalystType.FUNDAMENTALS,
     ],
     "research_depth": 1,
     "llm_provider": "deepseek v3",

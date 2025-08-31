@@ -116,7 +116,16 @@ class AnalysisPipeline:
                 if section_name in obj.report_sections and obj.report_sections[section_name] is not None:
                     content_to_write = obj.report_sections[section_name]
                     if content_to_write:
-                        file_name = f"{section_name}.md"
+                        chinese_filenames = {
+                            "market_report": "市场分析.md",
+                            "sentiment_report": "市场情绪分析.md",
+                            "news_report": "新闻事件分析.md",
+                            "fundamentals_report": "基本面分析.md",
+                            "investment_plan": "研究团队决策.md",
+                            "trader_investment_plan": "交易计划.md",
+                            "final_trade_decision": "最终投资决策.md",
+                        }
+                        file_name = chinese_filenames.get(section_name, f"{section_name}.md")
                         with open(self.report_dir / file_name, "w", encoding="utf-8") as f:
                             f.write(content_to_write)
             return wrapper
