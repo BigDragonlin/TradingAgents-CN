@@ -7,10 +7,8 @@ from app_email.send_email.make_report2doc import MakeReport2Doc
 logger = get_logger("cli")
 
 
-def run_analysis():
+def run_analysis(selections =  None):
     start_time = time.time()
-
-    selections = CONFIG
     if not check_api_keys(selections["llm_provider"]):
         logger.error("分析终止 | Analysis terminated")
         return
