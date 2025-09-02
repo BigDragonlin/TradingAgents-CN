@@ -138,7 +138,6 @@ def process_job(job):
             "shallow_thinker": "deepseek-chat",
             "deep_thinker": "deepseek-reasoner"
         }
-        print(temp_config)
         run_analysis(temp_config)
         # 这里可用真实Token统计写入 actual_cost；首版用expected_cost代替
         actual_cost = expected_cost
@@ -161,5 +160,4 @@ def process_job(job):
 def poll_and_run_jobs():
     rows = load_due_jobs()
     for job in rows:
-        print(job)
         process_job(job)

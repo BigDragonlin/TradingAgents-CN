@@ -1,22 +1,29 @@
 import logging
 from pathlib import Path
 import tempfile
+from datetime import datetime
 from web.utils.report_exporter import ReportExporter, report_exporter
 from tradingagents.utils.logging_manager import get_logger
 from app_email.send_email import send_email, EmailSendError
 
 logger = get_logger("cli")
 class MakeReport2Doc:
-    def __init__(self):
+    def __init__(self, send2email: str, stock_symbol: str):
         self.report_exporter = ReportExporter()
-    
-    def make_report2doc(self, stock_symbol: str):
-        # 收集其所有日期下 reports 中的 Markdown 报告
+        self.send2email = send2email
+        self.stock_symbol = stock_symbol
+
+    def make_report2doc(self):
+        # 仅收集“当天”目录下 reports 中的 Markdown 报告
+        stock_symbol = self.stock_symbol
         base_dir = Path(__file__).resolve().parents[2]
-        reports_glob = base_dir / "results" / stock_symbol
-        md_files = sorted(reports_glob.glob("*/reports/*.md"))
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        today_reports_dir = base_dir / "results" / stock_symbol / today_str / "reports"
+        md_files = sorted(today_reports_dir.glob("*.md"))
         if not md_files:
-            logging.error(f"No reports found for {stock_symbol}")
+            logging.error(
+                f"No reports found for {stock_symbol} on {today_str} in {today_reports_dir}"
+            )
         if not getattr(report_exporter, "pandoc_available", False):
             logger.error("Pandoc is not available")
 
@@ -61,10 +68,8 @@ class MakeReport2Doc:
         if not docx_attachment_paths:
             logger.error("No DOCX attachments generated")
 
-        subject = f"Results Reports: {stock_symbol} docx attachments={len(docx_attachment_paths)}"
-        body_text = f"该邮件包含 DOCX 报告附件（{stock_symbol}），请查收附件。"
-        
-        logger.info(f"Sending email to {subject}")
+        subject = f"分析股票代码: {stock_symbol}, 请注意查收={len(docx_attachment_paths)}附件"
+        body_text = f"该邮件包含股票代码（{stock_symbol}）的附件，请注意查收附件。"
         result = send_email(
             smtp_host="smtp.qq.com",
             smtp_port=587,
@@ -73,7 +78,7 @@ class MakeReport2Doc:
             subject=subject,
             body_text=body_text,
             from_addr="1363992060@qq.com",
-            to_addrs=["1363992060@qq.com"],
+            to_addrs=[self.send2email],
             use_tls=True,
             attachments=docx_attachment_paths,
         )
