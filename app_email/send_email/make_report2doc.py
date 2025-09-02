@@ -68,7 +68,7 @@ class MakeReport2Doc:
         if not docx_attachment_paths:
             logger.error("No DOCX attachments generated")
 
-        subject = f"分析股票代码: {stock_symbol}, 请注意查收={len(docx_attachment_paths)}附件"
+        subject = f"分析股票代码: {stock_symbol}, 请注意查收{len(docx_attachment_paths)}附件"
         body_text = f"该邮件包含股票代码（{stock_symbol}）的附件，请注意查收附件。"
         result = send_email(
             smtp_host="smtp.qq.com",
