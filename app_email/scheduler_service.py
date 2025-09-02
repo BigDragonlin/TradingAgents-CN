@@ -138,7 +138,7 @@ def process_job(job):
             "shallow_thinker": "deepseek-chat",
             "deep_thinker": "deepseek-reasoner"
         }
-        run_analysis(temp_config)
+        run_analysis(job["email"], job["ticker_identifier"], temp_config)
         # 这里可用真实Token统计写入 actual_cost；首版用expected_cost代替
         actual_cost = expected_cost
         delta = expected_cost - actual_cost

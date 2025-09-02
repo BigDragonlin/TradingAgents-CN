@@ -7,7 +7,7 @@ from app_email.send_email.make_report2doc import MakeReport2Doc
 logger = get_logger("cli")
 
 
-def run_analysis(selections =  None):
+def run_analysis(email, ticker_identifier, selections =  None, ):
     start_time = time.time()
     if not check_api_keys(selections["llm_provider"]):
         logger.error("分析终止 | Analysis terminated")
@@ -34,10 +34,8 @@ def run_analysis(selections =  None):
     pipeline.process_decision(trace)
     pipeline.generate_report()
 
-    make_report2doc = MakeReport2Doc()
-    make_report2doc.make_report2doc(selections['ticker'])
+    make_report2doc = MakeReport2Doc(email, ticker_identifier)
+    make_report2doc.make_report2doc()
 
     total_time = time.time() - start_time
     logger.info(f"⏱️ 总分析时间: {total_time:.1f}秒")
-
-
