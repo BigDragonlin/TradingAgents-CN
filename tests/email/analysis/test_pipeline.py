@@ -35,7 +35,7 @@ def test_configure(user_analysisPipeline):
     print(user_analysisPipeline.config["llm_provider"])
 
 def test_configure_another(mocker):
-    mock_analysisPipeline = mocker.Mock(spec=AnalysisPipeline)
+    mock_analysisPipeline: AnalysisPipeline = mocker.Mock(spec=AnalysisPipeline)
     mock_analysisPipeline.configure.return_value = {
         "llm_provider": "openai",
         "deep_think_llm": "o4-mini",
@@ -43,3 +43,4 @@ def test_configure_another(mocker):
         "backend_url": "https://api.openai.com/v1",
     }
     print(mock_analysisPipeline.configure())
+    mock_analysisPipeline.configure.assert_called_once_with()
