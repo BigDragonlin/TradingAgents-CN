@@ -44,3 +44,7 @@ def test_configure_another(mocker):
     }
     print(mock_analysisPipeline.configure())
     mock_analysisPipeline.configure.assert_called_once_with()
+
+def test_prepare_outputs(user_analysisPipeline):
+    user_analysisPipeline.configure()
+    user_analysisPipeline.prepare_outputs()

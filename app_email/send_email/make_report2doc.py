@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+import os
 import tempfile
 from datetime import datetime
 from web.utils.report_exporter import ReportExporter, report_exporter
@@ -14,15 +15,35 @@ class MakeReport2Doc:
         self.stock_symbol = stock_symbol
 
     def make_report2doc(self):
-        # 仅收集“当天”目录下 reports 中的 Markdown 报告
+        # 收集最新日期目录下 reports 中的 Markdown 报告，路径兼容 TRADINGAGENTS_RESULTS_DIR
         stock_symbol = self.stock_symbol
-        base_dir = Path(__file__).resolve().parents[2]
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        today_reports_dir = base_dir / "results" / stock_symbol / today_str / "reports"
-        md_files = sorted(today_reports_dir.glob("*.md"))
+        project_root = Path(__file__).resolve().parents[2]
+
+        # 解析 results 根目录：优先环境变量 TRADINGAGENTS_RESULTS_DIR，否则使用项目根目录下 results
+        results_dir_env = os.getenv("TRADINGAGENTS_RESULTS_DIR")
+        if results_dir_env:
+            results_base = Path(results_dir_env)
+            if not results_base.is_absolute():
+                results_base = project_root / results_dir_env
+        else:
+            results_base = project_root / "results"
+
+        stock_dir = results_base / stock_symbol
+        if not stock_dir.exists():
+            logger.error(f"Results directory not found: {stock_dir}")
+            return
+
+        # 在股票目录下选择最新的日期子目录
+        date_dirs = [p for p in stock_dir.iterdir() if p.is_dir()]
+        if not date_dirs:
+            logger.error(f"No date directories under {stock_dir}")
+            return
+        latest_date_dir = max(date_dirs, key=lambda p: p.name)
+        reports_dir = latest_date_dir / "reports"
+        md_files = sorted(reports_dir.glob("*.md"))
         if not md_files:
             logging.error(
-                f"No reports found for {stock_symbol} on {today_str} in {today_reports_dir}"
+                f"No reports found for {stock_symbol} in {reports_dir}"
             )
         if not getattr(report_exporter, "pandoc_available", False):
             logger.error("Pandoc is not available")

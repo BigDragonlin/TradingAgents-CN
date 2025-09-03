@@ -20,11 +20,11 @@ def run_analysis(email, ticker_identifier, selections =  None, ):
 
     pipeline = AnalysisPipeline(selections)
     pipeline.configure()
+    pipeline.prepare_outputs()
     try:
         pipeline.init_graph()
     except Exception:
         return
-    pipeline.prepare_outputs()
     message_buffer = pipeline.setup_message_buffer()
 
     if not pipeline.validate_data():

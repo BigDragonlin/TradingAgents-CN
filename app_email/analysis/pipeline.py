@@ -68,7 +68,11 @@ class AnalysisPipeline:
             raise
 
     def prepare_outputs(self) -> None:
-        results_dir = Path(self.config["results_dir"]) / self.selections["ticker"] / self.selections["analysis_date"]
+        # results_dir = Path(self.config["results_dir"]) / self.selections["ticker"] / self.selections["analysis_date"]
+        # results_dir.mkdir(parents=True, exist_ok=True)
+        # report_dir = results_dir / "reports"
+        project_root = Path(__file__).resolve().parents[2]  # 获取项目根目录
+        results_dir = project_root / "results" / self.selections["ticker"] / self.selections["analysis_date"]
         results_dir.mkdir(parents=True, exist_ok=True)
         report_dir = results_dir / "reports"
         report_dir.mkdir(parents=True, exist_ok=True)
@@ -126,8 +130,17 @@ class AnalysisPipeline:
                             "final_trade_decision": "最终投资决策.md",
                         }
                         file_name = chinese_filenames.get(section_name, f"{section_name}.md")
-                        with open(self.report_dir / file_name, "w", encoding="utf-8") as f:
-                            f.write(content_to_write)
+                        file_path = self.report_dir / file_name
+                        # 最终投资决策采用累积写入，避免多次刷新导致覆盖
+                        if section_name == "final_trade_decision" and file_path.exists():
+                            try:
+                                previous = file_path.read_text(encoding="utf-8", errors="ignore")
+                            except Exception:
+                                previous = ""
+                            merged = f"{previous}\n\n{content_to_write}".strip()
+                            file_path.write_text(merged, encoding="utf-8")
+                        else:
+                            file_path.write_text(content_to_write, encoding="utf-8")
             return wrapper
 
         message_buffer.add_message = save_message_decorator(message_buffer, "add_message")
