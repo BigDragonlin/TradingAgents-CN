@@ -91,11 +91,13 @@ class MakeReport2Doc:
 
         subject = f"分析股票代码: {stock_symbol}, 请注意查收{len(docx_attachment_paths)}附件"
         body_text = f"该邮件包含股票代码（{stock_symbol}）的附件，请注意查收附件。"
+        user_name = os.getenv("EMAIL_USER")
+        password = os.getenv("EMAIL_PASSWORD")
         result = send_email(
             smtp_host="smtp.qq.com",
             smtp_port=587,
-            username="1363992060@qq.com",
-            password="ghlwbuttcanwgcef",
+            username=user_name,
+            password=password,
             subject=subject,
             body_text=body_text,
             from_addr="1363992060@qq.com",
