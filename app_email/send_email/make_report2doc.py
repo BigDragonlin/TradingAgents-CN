@@ -4,6 +4,7 @@ import os
 import tempfile
 from datetime import datetime
 from web.utils.report_exporter import ReportExporter, report_exporter
+import pypandoc
 from tradingagents.utils.logging_manager import get_logger
 from app_email.send_email import send_email, EmailSendError
 
@@ -51,39 +52,25 @@ class MakeReport2Doc:
         docx_attachment_paths = []
         for idx, p in enumerate(md_files):
             md_text = p.read_text(encoding="utf-8", errors="ignore")
-            # 构造最小化 results 以复用 generate_pdf_report
-            results = {
-                "stock_symbol": stock_symbol,
-                "decision": {
-                    "action": "info",
-                    "confidence": 1.0,
-                    "risk_score": 0.0,
-                    "target_price": "",
-                    "reasoning": f"来源: {p.parent.parent.name}/{p.parent.name}/{p.name}",
-                },
-                "state": {
-                    # 将原 md 内容放入一个模块字段中，避免模板为空
-                    "investment_plan": md_text,
-                },
-                "llm_provider": "n/a",
-                "llm_model": "n/a",
-                "analysts": [],
-                "research_depth": "文件导入",
-                "is_demo": True,
-            }
 
-            try:
-                docx_bytes = report_exporter.generate_docx_report(results)
-            except Exception:
-                # 单个失败不影响整体
-                continue
-
-            # 将 DOCX 内容写入临时文件，作为附件
+            # 直接将原始Markdown转换为DOCX，不注入任何模板内容
             tmp_docx = Path(tempfile.gettempdir()) / f"{p.stem}-{idx}.docx"
             try:
-                tmp_docx.write_bytes(docx_bytes)
-                docx_attachment_paths.append(str(tmp_docx))
+                extra_args = ["--from=markdown-yaml_metadata_block"]
+                pypandoc.convert_text(
+                    md_text,
+                    "docx",
+                    format="markdown",
+                    outputfile=str(tmp_docx),
+                    extra_args=extra_args,
+                )
+                # 确认文件已生成且非空
+                if tmp_docx.exists() and tmp_docx.stat().st_size > 0:
+                    docx_attachment_paths.append(str(tmp_docx))
+                else:
+                    continue
             except Exception:
+                # 单个失败不影响整体
                 continue
 
         if not docx_attachment_paths:
