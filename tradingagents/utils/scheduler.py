@@ -27,6 +27,21 @@ class SchedulerManager:
         )
         print("任务添加成功！规则：每10秒执行一次。")
 
+    def add_weekday_0830(self, function, job_id='weekday_0830'):
+        """
+        添加工作日(周一至周五)早上08:30触发的任务。
+        """
+        print("正在添加工作日08:30任务...")
+        self.scheduler.add_job(
+            function,
+            trigger='cron',
+            day_of_week='mon-fri',
+            hour=17,
+            minute=6,
+            id=job_id
+        )
+        print("任务添加成功！规则：周一至周五 08:30 执行一次。")
+
     def run(self):
         """
         启动调度器并处理退出事件。

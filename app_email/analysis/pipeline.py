@@ -131,16 +131,9 @@ class AnalysisPipeline:
                         }
                         file_name = chinese_filenames.get(section_name, f"{section_name}.md")
                         file_path = self.report_dir / file_name
-                        # 最终投资决策采用累积写入，避免多次刷新导致覆盖
-                        if section_name == "final_trade_decision" and file_path.exists():
-                            try:
-                                previous = file_path.read_text(encoding="utf-8", errors="ignore")
-                            except Exception:
-                                previous = ""
-                            merged = f"{previous}\n\n{content_to_write}".strip()
-                            file_path.write_text(merged, encoding="utf-8")
-                        else:
-                            file_path.write_text(content_to_write, encoding="utf-8")
+                        # 对最终投资决策采用覆盖写入，避免流式阶段多次叠加导致重复
+                        # 其他报告同样采用覆盖写入，保持文件内容等于当前报告状态
+                        file_path.write_text(content_to_write, encoding="utf-8")
             return wrapper
 
         message_buffer.add_message = save_message_decorator(message_buffer, "add_message")
@@ -300,22 +293,48 @@ class AnalysisPipeline:
 
                 if chunk.get("risk_debate_state"):
                     risk_state = chunk["risk_debate_state"]
+
+                    # 更新状态与消息面板（保留原有行为）
                     if risk_state.get("current_risky_response"):
                         message_buffer.update_agent_status("Risky Analyst", "in_progress")
                         message_buffer.add_message("Reasoning", f"Risky Analyst: {risk_state['current_risky_response']}")
-                        message_buffer.update_report_section("final_trade_decision", f"### Risky Analyst Analysis\n{risk_state['current_risky_response']}")
                     if risk_state.get("current_safe_response"):
                         message_buffer.update_agent_status("Safe Analyst", "in_progress")
                         message_buffer.add_message("Reasoning", f"Safe Analyst: {risk_state['current_safe_response']}")
-                        message_buffer.update_report_section("final_trade_decision", f"### Safe Analyst Analysis\n{risk_state['current_safe_response']}")
                     if risk_state.get("current_neutral_response"):
                         message_buffer.update_agent_status("Neutral Analyst", "in_progress")
                         message_buffer.add_message("Reasoning", f"Neutral Analyst: {risk_state['current_neutral_response']}")
-                        message_buffer.update_report_section("final_trade_decision", f"### Neutral Analyst Analysis\n{risk_state['current_neutral_response']}")
                     if risk_state.get("judge_decision"):
                         message_buffer.update_agent_status("Portfolio Manager", "in_progress")
                         message_buffer.add_message("Reasoning", f"Portfolio Manager: {risk_state['judge_decision']}")
-                        message_buffer.update_report_section("final_trade_decision", f"### Portfolio Manager Decision\n{risk_state['judge_decision']}")
+
+                    # 组合写入：对最终投资决策进行分段去重更新（覆盖同名段落，避免重复）
+                    def upsert_section(existing_text: str, header: str, body: str) -> str:
+                        if not body:
+                            return existing_text or ""
+                        block = f"### {header}\n{body}".strip()
+                        if not existing_text:
+                            return block
+                        pattern = rf"(### {re.escape(header)}\n)([\s\S]*?)(?=\n### |\Z)"
+                        if re.search(pattern, existing_text):
+                            return re.sub(pattern, block + "\n", existing_text).strip()
+                        return (existing_text + "\n\n" + block).strip()
+
+                    existing = message_buffer.report_sections.get("final_trade_decision") or ""
+                    combined = existing
+                    if risk_state.get("current_risky_response"):
+                        combined = upsert_section(combined, "Risky Analyst Analysis", risk_state["current_risky_response"])
+                    if risk_state.get("current_safe_response"):
+                        combined = upsert_section(combined, "Safe Analyst Analysis", risk_state["current_safe_response"])
+                    if risk_state.get("current_neutral_response"):
+                        combined = upsert_section(combined, "Neutral Analyst Analysis", risk_state["current_neutral_response"])
+                    if risk_state.get("judge_decision"):
+                        combined = upsert_section(combined, "Portfolio Manager Decision", risk_state["judge_decision"])
+
+                    if combined != existing:
+                        message_buffer.update_report_section("final_trade_decision", combined)
+
+                    if risk_state.get("judge_decision"):
                         for agent in ["Risky Analyst", "Safe Analyst", "Neutral Analyst", "Portfolio Manager"]:
                             message_buffer.update_agent_status(agent, "completed")
 

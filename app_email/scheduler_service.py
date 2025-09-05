@@ -132,11 +132,28 @@ def process_job(job):
                 AnalystType.NEWS,
                 AnalystType.FUNDAMENTALS,
             ],
-            "research_depth": 1,
-            "llm_provider": "deepseek v3",
-            "backend_url": "https://api.deepseek.com",
-            "shallow_thinker": "deepseek-chat",
-            "deep_thinker": "deepseek-reasoner"
+            # "research_depth": 1,
+            # "llm_provider": "deepseek",
+            # "backend_url": "https://api.deepseek.com",
+            # "shallow_thinker": "deepseek-chat",
+            # "deep_thinker": "deepseek-reasoner"
+
+            # "research_depth": 1,
+            # "llm_provider": "openai",
+            # "backend_url": "https://www.chataiapi.com/v1",
+            # "shallow_thinker": "gemini-2.5-flash",
+            # "deep_thinker": "gemini-2.5-pro"
+
+            # "shallow_thinker": "qwen3-235b-a22b",
+            # "deep_thinker": "qwen3-235b-a22b"
+
+            #     阿里
+
+            "backend_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "research_depth": 3,
+            "llm_provider": "阿里百炼",
+            "shallow_thinker": "qwen-turbo",
+            "deep_thinker": "qwen-plus"
         }
         run_analysis(job["email"], job["ticker_identifier"], temp_config)
         # 这里可用真实Token统计写入 actual_cost；首版用expected_cost代替
