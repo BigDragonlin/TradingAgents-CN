@@ -112,7 +112,7 @@ class UnifiedNewsAnalyzer:
                     logger.info(f"[统一新闻工具] ✅ 东方财富新闻获取成功: {len(result)} 字符")
                     return self._format_news_result(result, "东方财富实时新闻", model_info)
                 else:
-                    logger.warning(f"[统一新闻工具] ⚠️ 东方财富新闻内容过短或为空")
+                    logger.warning(f"[统一新闻工具] ⚠️ 东方财富新闻内容过短或为空 (len={len(result) if result else 0})")
         except Exception as e:
             logger.warning(f"[统一新闻工具] 东方财富新闻获取失败: {e}")
         
@@ -123,6 +123,7 @@ class UnifiedNewsAnalyzer:
                 query = f"{stock_code} 股票 新闻 财报 业绩"
                 # 使用LangChain工具的正确调用方式：.invoke()方法和字典参数
                 result = self.toolkit.get_google_news.invoke({"query": query, "curr_date": curr_date})
+                logger.info(f"[统一新闻工具] 📊 Google返回内容长度: {len(result) if result else 0} 字符, 预览: {result[:200] if result else 'None'}")
                 if result and len(result.strip()) > 50:
                     logger.info(f"[统一新闻工具] ✅ Google新闻获取成功: {len(result)} 字符")
                     return self._format_news_result(result, "Google新闻", model_info)
@@ -135,6 +136,7 @@ class UnifiedNewsAnalyzer:
                 logger.info(f"[统一新闻工具] 尝试OpenAI全球新闻...")
                 # 使用LangChain工具的正确调用方式：.invoke()方法和字典参数
                 result = self.toolkit.get_global_news_openai.invoke({"curr_date": curr_date})
+                logger.info(f"[统一新闻工具] 📊 OpenAI返回内容长度: {len(result) if result else 0} 字符, 预览: {result[:200] if result else 'None'}")
                 if result and len(result.strip()) > 50:
                     logger.info(f"[统一新闻工具] ✅ OpenAI新闻获取成功: {len(result)} 字符")
                     return self._format_news_result(result, "OpenAI全球新闻", model_info)

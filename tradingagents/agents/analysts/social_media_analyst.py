@@ -1,6 +1,7 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 import time
 import json
+import os
 
 # 导入统一日志系统和分析模块日志装饰器
 from tradingagents.utils.logging_init import get_logger
@@ -90,7 +91,20 @@ def create_social_media_analyst(llm, toolkit):
         logger.info(f"[社交媒体分析师] 公司名称: {company_name}")
 
         if toolkit.config["online_tools"]:
-            tools = [toolkit.get_stock_news_openai]
+            # 根据LLM提供商与OpenAI配置选择合适的新闻工具，避免404
+            provider = str(toolkit.config.get("llm_provider", "")).lower()
+            backend_url = str(toolkit.config.get("backend_url", ""))
+            openai_ok = (
+                "openai" in provider
+                and os.getenv("OPENAI_API_KEY")
+                and ("openai.com" in backend_url)
+            )
+
+            if openai_ok and hasattr(toolkit, 'get_stock_news_openai'):
+                tools = [toolkit.get_stock_news_openai]
+            else:
+                # 默认使用统一新闻工具，覆盖A股/港股/美股并带多重回退
+                tools = [toolkit.get_stock_news_unified]
         else:
             # 优先使用中国社交媒体数据，如果不可用则回退到Reddit
             tools = [

@@ -785,38 +785,69 @@ def get_YFin_data(
 
 
 def get_stock_news_openai(ticker, curr_date):
-    config = get_config()
-    client = OpenAI(base_url=config["backend_url"])
+    """
+    使用OpenAI工具获取公司相关新闻；当OpenAI配置不可用或返回错误时，自动回退到Google新闻。
+    这能避免在非OpenAI提供商（或自定义代理缺少web_search_preview）时出现404错误。
+    """
+    try:
+        config = get_config()
 
-    response = client.responses.create(
-        model=config["quick_think_llm"],
-        input=[
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": f"Can you search Social Media for {ticker} from 7 days before {curr_date} to {curr_date}? Make sure you only get the data posted during that period.",
-                    }
-                ],
-            }
-        ],
-        text={"format": {"type": "text"}},
-        reasoning={},
-        tools=[
-            {
-                "type": "web_search_preview",
-                "user_location": {"type": "approximate"},
-                "search_context_size": "low",
-            }
-        ],
-        temperature=1,
-        max_output_tokens=4096,
-        top_p=1,
-        store=True,
-    )
+        # 关键保护：只有当明确配置为OpenAI端点且存在API Key时才调用
+        backend_url = str(config.get("backend_url", ""))
+        model_name = str(config.get("quick_think_llm", ""))
+        openai_api_key = os.getenv("OPENAI_API_KEY")
 
-    return response.output[1].content[0].text
+        use_openai = (
+            bool(openai_api_key)
+            and "openai.com" in backend_url
+            and len(model_name) > 0
+        )
+
+        if not use_openai:
+            logger.debug(
+                f"[OpenAI-Guard] OpenAI配置不满足条件，回退到Google新闻。backend_url={backend_url}, has_key={bool(openai_api_key)}"
+            )
+            return get_google_news(ticker, curr_date, 7)
+
+        client = OpenAI(base_url=backend_url)
+
+        response = client.responses.create(
+            model=model_name,
+            input=[
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": f"Can you search Social Media for {ticker} from 7 days before {curr_date} to {curr_date}? Make sure you only get the data posted during that period.",
+                        }
+                    ],
+                }
+            ],
+            text={"format": {"type": "text"}},
+            reasoning={},
+            tools=[
+                {
+                    "type": "web_search_preview",
+                    "user_location": {"type": "approximate"},
+                    "search_context_size": "low",
+                }
+            ],
+            temperature=1,
+            max_output_tokens=4096,
+            top_p=1,
+            store=True,
+        )
+
+        return response.output[1].content[0].text
+
+    except Exception as e:
+        logger.error(f"[OpenAI] get_stock_news_openai 调用失败: {e}. 回退到Google新闻。")
+        try:
+            return get_google_news(ticker, curr_date, 7)
+        except Exception as ge:
+            logger.error(f"[Fallback] Google新闻回退同样失败: {ge}")
+            return f"❌ 无法获取{ticker}新闻: OpenAI与Google均不可用 ({e}; {ge})"
 
 
 def get_global_news_openai(curr_date):
