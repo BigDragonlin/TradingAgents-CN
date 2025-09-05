@@ -289,6 +289,8 @@ class TradingAgentsGraph:
             ),
             "news": ToolNode(
                 [
+                    # 统一新闻工具（覆盖A股/港股/美股并带多重回退）
+                    # self.toolkit.get_stock_news_unified,
                     # online tools
                     self.toolkit.get_global_news_openai,
                     self.toolkit.get_google_news,
