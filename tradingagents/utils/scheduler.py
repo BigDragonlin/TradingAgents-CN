@@ -42,6 +42,21 @@ class SchedulerManager:
         )
         print("任务添加成功！规则：周一至周五 08:30 执行一次。")
 
+    # 每天固定时间运行
+    def add_daily_0830(self, function, job_id='daily_0830'):
+        """
+        添加每天固定时间运行的任务。
+        任务规则：每天08:30执行一次。
+        """
+        print("正在添加每天08:30任务...")
+        self.scheduler.add_job(
+            function,
+            trigger='cron',
+            hour=16,
+            minute=52,
+            id=job_id
+        )
+
     def run(self):
         """
         启动调度器并处理退出事件。
