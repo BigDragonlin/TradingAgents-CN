@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 import tempfile
 from datetime import datetime
+import re
 from web.utils.report_exporter import ReportExporter, report_exporter
 import pypandoc
 from tradingagents.utils.logging_manager import get_logger
@@ -54,7 +55,7 @@ class MakeReport2Doc:
             md_text = p.read_text(encoding="utf-8", errors="ignore")
 
             # 直接将原始Markdown转换为DOCX，不注入任何模板内容
-            tmp_docx = Path(tempfile.gettempdir()) / f"{p.stem}-{idx}.docx"
+            tmp_docx = Path(tempfile.gettempdir()) / f"{p.stem}.docx"
             try:
                 extra_args = ["--from=markdown-yaml_metadata_block"]
                 pypandoc.convert_text(
@@ -76,8 +77,54 @@ class MakeReport2Doc:
         if not docx_attachment_paths:
             logger.error("No DOCX attachments generated")
 
+        # 合并 reports_dir 内所有 Markdown，按文件名后缀数字升序组合（如 *_01.md, *_6.md, *_12.md）
+        section_title_overrides = {
+            "市场分析_01.md": "🎯 市场分析",
+            "市场情绪分析_02.md": "💭 市场情绪分析",
+            "新闻事件分析_03.md": "📰 新闻事件分析",
+            "基本面分析_04.md": "💰 基本面分析",
+            "研究团队决策_05.md": "🔬 研究团队决策",
+            "交易计划_06.md": "🎯 交易计划",
+            "最终投资决策_07.md": "✅ 最终投资决策",
+        }
+
+        def _suffix_number(name: str) -> int:
+            m = re.search(r"_(\d+)\.md$", name)
+            return int(m.group(1)) if m else 999999
+
+        all_md_files = sorted(reports_dir.glob("*.md"), key=lambda p: (_suffix_number(p.name), p.name))
+
+        combined_parts = [
+            f"# {stock_symbol} 报告汇总",
+            f"分析日期：{latest_date_dir.name}",
+            "",
+        ]
+        for fp in all_md_files:
+            try:
+                content = fp.read_text(encoding="utf-8", errors="ignore").strip()
+            except Exception:
+                # 单个文件失败不影响整体
+                continue
+            title = section_title_overrides.get(fp.name, fp.stem)
+            combined_parts.append(f"---\n\n## {title}\n\n{content}\n")
+
+        combined_markdown = "\n".join(combined_parts).strip()
+        # 转为 HTML，用于邮件 HTML 正文
+        body_html = None
+        if combined_markdown:
+            try:
+                extra_args = ["--from=markdown-yaml_metadata_block"]
+                body_html = pypandoc.convert_text(
+                    combined_markdown,
+                    "html",
+                    format="markdown",
+                    extra_args=extra_args,
+                )
+            except Exception:
+                body_html = None
+
         subject = f"分析股票代码: {stock_symbol}, 请注意查收{len(docx_attachment_paths)}附件"
-        body_text = f"该邮件包含股票代码（{stock_symbol}）的附件，请注意查收附件。"
+        body_text = combined_markdown if combined_markdown else f"该邮件包含股票代码（{stock_symbol}）的附件，请注意查收附件。"
         user_name = os.getenv("EMAIL_USER")
         password = os.getenv("EMAIL_PASSWORD")
         result = send_email(
@@ -87,6 +134,7 @@ class MakeReport2Doc:
             password=password,
             subject=subject,
             body_text=body_text,
+            body_html=body_html,
             from_addr="1363992060@qq.com",
             to_addrs=[self.send2email],
             use_tls=True,
