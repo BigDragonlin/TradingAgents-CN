@@ -147,7 +147,7 @@ def process_job(job):
             # "shallow_thinker": "qwen3-235b-a22b",
             # "deep_thinker": "qwen3-235b-a22b"
 
-            #     阿里
+            #阿里
 
             "backend_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
             "research_depth": 3,
