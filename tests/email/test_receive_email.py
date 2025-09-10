@@ -92,10 +92,12 @@ def test_receive_login_error(monkeypatch):
 def test_receive_real():
     seen_keys = set()
     # 可配置参数（环境变量覆盖）
+    user_name = os.getenv("EMAIL_USER")
+    password = os.getenv("EMAIL_PASSWORD")
     imap_host = os.getenv("IMAP_HOST", "imap.qq.com")
     imap_port = int(os.getenv("IMAP_PORT", "993"))
-    imap_user = os.getenv("IMAP_USER", "1363992060@qq.com")
-    imap_pass = os.getenv("IMAP_PASS", "ghlwbuttcanwgcef")
+    imap_user = os.getenv("IMAP_USER", user_name)
+    imap_pass = os.getenv("IMAP_PASS", password)
     imap_mailbox = os.getenv("IMAP_MAILBOX", "INBOX")
     imap_criteria = os.getenv("IMAP_CRITERIA", "UNSEEN")
 
@@ -142,5 +144,3 @@ def test_receive_real():
         except KeyboardInterrupt:
             print("Stopped by user.")
             break
-
-
