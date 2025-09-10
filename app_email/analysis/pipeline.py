@@ -12,7 +12,7 @@ from tradingagents.utils.logging_manager import get_logger
 from .buffer import MessageBuffer
 
 
-logger = get_logger("cli")
+logger = get_logger("app_email")
 
 
 class AnalysisPipeline:
@@ -68,9 +68,6 @@ class AnalysisPipeline:
             raise
 
     def prepare_outputs(self) -> None:
-        # results_dir = Path(self.config["results_dir"]) / self.selections["ticker"] / self.selections["analysis_date"]
-        # results_dir.mkdir(parents=True, exist_ok=True)
-        # report_dir = results_dir / "reports"
         project_root = Path(__file__).resolve().parents[2]  # 获取项目根目录
         results_dir = project_root / "results" / self.selections["ticker"] / self.selections["analysis_date"]
         results_dir.mkdir(parents=True, exist_ok=True)
@@ -136,8 +133,11 @@ class AnalysisPipeline:
                         file_path.write_text(content_to_write, encoding="utf-8")
             return wrapper
 
+        # 装饰器将信息添加到log_file中
         message_buffer.add_message = save_message_decorator(message_buffer, "add_message")
+        # 装饰器将工具调用信息添加到log_file中
         message_buffer.add_tool_call = save_tool_call_decorator(message_buffer, "add_tool_call")
+        # 装饰器将报告段落信息添加到log_file中
         message_buffer.update_report_section = save_report_section_decorator(message_buffer, "update_report_section")
 
     def setup_message_buffer(self) -> MessageBuffer:

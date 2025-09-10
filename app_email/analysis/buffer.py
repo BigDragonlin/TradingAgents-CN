@@ -9,17 +9,29 @@ class MessageBuffer:
         self.current_report = None
         self.final_report = None
         self.agent_status = {
+            # 市场分析师
             "Market Analyst": "pending",
+            # 社交媒体分析师
             "Social Analyst": "pending",
+            # 新闻分析师
             "News Analyst": "pending",
+            # 基本面分析师
             "Fundamentals Analyst": "pending",
+            # 多头研究员
             "Bull Researcher": "pending",
+            # 空头研究员
             "Bear Researcher": "pending",
+            # 研究经理
             "Research Manager": "pending",
+            # 交易员
             "Trader": "pending",
+            # 激进分析师
             "Risky Analyst": "pending",
+            # 中性分析师
             "Neutral Analyst": "pending",
+            # 保守分析师
             "Safe Analyst": "pending",
+            # 投资经理
             "Portfolio Manager": "pending",
         }
         self.current_agent = None

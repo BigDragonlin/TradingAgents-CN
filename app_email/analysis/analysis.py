@@ -25,11 +25,11 @@ def run_analysis(email, ticker_identifier, selections =  None, ):
         pipeline.init_graph()
     except Exception:
         return
+    # 设置消息缓冲区
     message_buffer = pipeline.setup_message_buffer()
-
+    # 验证数据
     if not pipeline.validate_data():
         return
-
     trace = pipeline.run_stream()
     pipeline.process_decision(trace)
     pipeline.generate_report()
