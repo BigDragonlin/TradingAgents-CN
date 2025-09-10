@@ -126,26 +126,11 @@ def process_job(job):
             },
             "analysis_date": datetime.datetime.now().strftime("%Y-%m-%d"),
             "analysts": [
-                # job["analysts"],
                 AnalystType.MARKET,
-                AnalystType.SOCIAL,
+                # AnalystType.SOCIAL,
                 AnalystType.NEWS,
                 AnalystType.FUNDAMENTALS,
             ],
-            # "research_depth": 1,
-            # "llm_provider": "deepseek",
-            # "backend_url": "https://api.deepseek.com",
-            # "shallow_thinker": "deepseek-chat",
-            # "deep_thinker": "deepseek-reasoner"
-
-            # "research_depth": 1,
-            # "llm_provider": "openai",
-            # "backend_url": "https://www.chataiapi.com/v1",
-            # "shallow_thinker": "gemini-2.5-flash",
-            # "deep_thinker": "gemini-2.5-pro"
-
-            # "shallow_thinker": "qwen3-235b-a22b",
-            # "deep_thinker": "qwen3-235b-a22b"
 
             #阿里
 
