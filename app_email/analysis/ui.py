@@ -39,29 +39,4 @@ class CLIUserInterface:
         self.console.print("─" * 60)
 
 
-def print_welcome(console: Console):
-    from pathlib import Path
-    try:
-        with open(Path(__file__).parent / "static" / "welcome.txt", "r", encoding="utf-8") as f:
-            welcome_ascii = f.read()
-    except FileNotFoundError:
-        welcome_ascii = "TradingAgents"
-
-    welcome_content = f"{welcome_ascii}\n"
-    welcome_content += "[bold green]TradingAgents: 多智能体大语言模型金融交易框架 - CLI[/bold green]\n"
-    welcome_content += "[bold green]Multi-Agents LLM Financial Trading Framework - CLI[/bold green]\n\n"
-    welcome_content += "[bold]工作流程 | Workflow Steps:[/bold]\n"
-    welcome_content += "I. 分析师团队 | Analyst Team → II. 研究团队 | Research Team → III. 交易员 | Trader → IV. 风险管理 | Risk Management → V. 投资组合管理 | Portfolio Management\n\n"
-    welcome_content += ("[dim]Built by [Tauric Research](https://github.com/TauricResearch)[/dim]")
-
-    welcome_box = Panel(
-        welcome_content,
-        border_style="green",
-        padding=(1, 2),
-        title="欢迎使用 TradingAgents | Welcome to TradingAgents",
-        subtitle="多智能体大语言模型金融交易框架 | Multi-Agents LLM Financial Trading Framework",
-    )
-    console.print(Align.center(welcome_box))
-    console.print()
-
 
