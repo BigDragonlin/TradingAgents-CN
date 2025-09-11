@@ -6,6 +6,7 @@ from app_email.receice_email.receiver import (
 )
 from tradingagents.utils.logging_manager import get_logger
 from app_email.scheduler_service import process_email_job
+from app_email.send_email import send_email, EmailSendError
 
 logger = get_logger("email_receive_service")
 
@@ -13,10 +14,10 @@ logger = get_logger("email_receive_service")
 class EmailReceiveService:
     def __init__(self):
         # 从环境变量获取配置
-        self.imap_host = os.getenv("IMAP_HOST", "imap.qq.com")
-        self.imap_port = int(os.getenv("IMAP_PORT", "993"))
-        self.username = os.getenv("IMAP_USER") or os.getenv("EMAIL_USER")
-        self.password = os.getenv("IMAP_PASS") or os.getenv("EMAIL_PASSWORD")
+        self.imap_host = os.getenv("IMAP_HOST")
+        self.imap_port = 587
+        self.username = os.getenv("EMAIL_USER")
+        self.password = os.getenv("EMAIL_PASSWORD")
         self.mailbox = os.getenv("IMAP_MAILBOX", "INBOX")
         self.criteria = os.getenv("IMAP_CRITERIA", "UNSEEN")
 
@@ -66,11 +67,29 @@ class EmailReceiveService:
             process_email_job(body, email_data.get("from"))
         print("-" * 60)
 
+    # 邮件回执
+    def send_email_receipt(self, to_email):
+        user_name = self.username
+        password = self.password
+        
+        send_email(
+            smtp_host="smtp.qq.com",
+            smtp_port=587,
+            username=user_name,
+            password=password,
+            subject="",
+            body_text="股票多智能体回执",
+            body_html="请耐心等待，分析过程大约十分钟",
+            from_addr=user_name,
+            to_addrs=[to_email],
+            use_tls=True,
+            attachments=[],
+        )
+
     def poll_emails(self):
         """轮询接收邮件（单次执行）"""
         if not self.validate_config():
             return
-
         try:
             results = receive_emails(
                 imap_host=self.imap_host,
@@ -110,7 +129,7 @@ class EmailReceiveService:
                             message_id=str(msg_id),
                         )
                         if marked:
-                            # TODO 回执
+                            self.send_email_receipt(msg.get("from"))
                             logger.debug(f"邮件已标记为已读: id={msg_id}")
                         else:
                             logger.warning(f"标记已读失败: id={msg_id}")
