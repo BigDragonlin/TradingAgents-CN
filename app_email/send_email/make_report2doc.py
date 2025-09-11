@@ -135,7 +135,7 @@ class MakeReport2Doc:
             subject=subject,
             body_text=body_text,
             body_html=body_html,
-            from_addr="1363992060@qq.com",
+            from_addr=user_name,
             to_addrs=[self.send2email],
             use_tls=True,
             attachments=docx_attachment_paths,

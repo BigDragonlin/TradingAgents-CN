@@ -22,7 +22,7 @@ class SchedulerManager:
         self.scheduler.add_job(
             function,      # 要执行的函数
             trigger='interval',       # 使用 cron 触发器
-            seconds=10,           # 触发条件：10秒
+            seconds=3,           # 触发条件：10秒
             id='custom_job_01' # 为任务分配一个唯一的ID
         )
         print("任务添加成功！规则：每10秒执行一次。")

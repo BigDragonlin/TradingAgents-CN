@@ -144,3 +144,38 @@ def test_receive_real():
         except KeyboardInterrupt:
             print("Stopped by user.")
             break
+
+def test_receive_real_success():
+    # receive = {
+    #         "ticker": 110000,
+    #         "market": {
+    #             "name": "A股",
+    #             "name_en": "China A-Share",
+    #             "default": "600036",
+    #             "examples": [
+    #                 "000001 (平安银行)",
+    #                 "600036 (招商银行)",
+    #                 "000858 (五粮液)"
+    #             ],
+    #             "format": "6位数字代码 (如: 600036, 000001)",
+    #             "pattern": "^\\d{6}$",
+    #             "data_source": "china_stock"
+    #         },
+    #         "analysis_date": datetime.datetime.now().strftime("%Y-%m-%d"),
+    #         "analysts": [
+    #             MARKET = "market"
+    #             NEWS = "news"
+    #             FUNDAMENTALS = "fundamentals"
+    #         ],
+    #         "research_depth": 3,
+    # }
+
+    receive = {
+            "股票代码": 110000,
+            "分析师": [
+                "市场分析",
+                "新闻分析",
+                "基本面分析",
+            ],
+            "研究深度": 3,
+        }

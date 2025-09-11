@@ -5,6 +5,7 @@ from app_email.receice_email.receiver import (
     mark_email_as_seen,
 )
 from tradingagents.utils.logging_manager import get_logger
+from app_email.scheduler_service import process_email_job
 
 logger = get_logger("email_receive_service")
 
@@ -62,7 +63,7 @@ class EmailReceiveService:
             print(f"Subject: {email_data.get('subject')}")
         if "body" in self.print_fields:
             body = email_data.get("body", "")
-            process_email_job(body)
+            process_email_job(body, email_data.get("from"))
         print("-" * 60)
 
     def poll_emails(self):
@@ -71,8 +72,6 @@ class EmailReceiveService:
             return
 
         try:
-            logger.info("开始检查新邮件...")
-
             results = receive_emails(
                 imap_host=self.imap_host,
                 imap_port=self.imap_port,
@@ -119,7 +118,7 @@ class EmailReceiveService:
                         logger.warning(f"标记已读异常: id={msg_id}, err={e}")
                 self.process_email(msg)
             if new_count == 0:
-                logger.info("没有新邮件")
+                return
             else:
                 logger.info(f"处理了 {new_count} 封新邮件")
 

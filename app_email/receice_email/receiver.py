@@ -39,7 +39,9 @@ def _extract_plain_from_message(msg: email.message.Message) -> str:
             try:
                 payload = msg.get_payload(decode=True)
                 if isinstance(payload, (bytes, bytearray)):
-                    return payload.decode(msg.get_content_charset() or "utf-8", errors="ignore")
+                    return payload.decode(
+                        msg.get_content_charset() or "utf-8", errors="ignore"
+                    )
                 return str(payload)
             except Exception:
                 return ""
@@ -103,11 +105,22 @@ def receive_emails(
             if "<" in from_addr and ">" in from_addr:
                 from_addr = from_addr.split("<")[-1].split(">")[0]
 
-            results.append({
-                "subject": subject,
-                "from": from_addr.replace("From: ", "").strip(),
-                "body": body,
-            })
+            # message sequence number for later operations (e.g. mark as seen)
+            try:
+                msg_id = (
+                    num.decode() if isinstance(num, (bytes, bytearray)) else str(num)
+                )
+            except Exception:
+                msg_id = str(num)
+
+            results.append(
+                {
+                    "subject": subject,
+                    "from": from_addr.replace("From: ", "").strip(),
+                    "body": body,
+                    "id": msg_id,
+                }
+            )
 
         imap.logout()
         return results
@@ -115,3 +128,32 @@ def receive_emails(
         raise EmailReceiveError(str(e))
 
 
+def mark_email_as_seen(
+    imap_host: str,
+    imap_port: int,
+    username: Optional[str],
+    password: Optional[str],
+    mailbox: str,
+    message_id: str,
+) -> bool:
+    """使用 IMAP 将指定邮件标记为已读。
+
+    参数中的 message_id 为序号（非 UID），与 search 返回的编号一致。
+    """
+    try:
+        imap = imaplib.IMAP4_SSL(imap_host, imap_port)
+        if username and password:
+            imap.login(username, password)
+        status, _ = imap.select(mailbox)
+        if status != "OK" and status != b"OK":
+            raise EmailReceiveError(f"Select mailbox failed: {status}")
+
+        # 标记为已读：添加 \\Seen 标志
+        store_status, _ = imap.store(message_id, "+FLAGS", "\\Seen")
+        imap.logout()
+        return store_status == "OK" or store_status == b"OK"
+    except imaplib.IMAP4.error as e:
+        raise EmailReceiveError(str(e))
+    except Exception:
+        # 其他异常归一化为 False，不中断上层流程
+        return False
