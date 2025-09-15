@@ -1,19 +1,156 @@
 import json, os, tempfile, datetime, re
-from typing import List, Dict
-from pathlib import Path
+import hashlib
+import time
+from typing import List
 from tradingagents.utils.database import Database
+from pathlib import Path
 from tradingagents.utils.logging_manager import get_logger
-from tradingagents.config.config_manager import ConfigManager
 from web.utils.report_exporter import ReportExporter
 from app_email.analysis.analysis import run_analysis
 from cli.models import AnalystType
+from app_email.send_email import send_email
 
 logger = get_logger("cli")
 BASE_DIR = Path(__file__).resolve().parents[1]
 DB_DIR = BASE_DIR / "data" / "sqlite"
 DB_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = str(DB_DIR / "app_email.db")
+def ensure_email_queue_table():
+    ddl = """
+    CREATE TABLE IF NOT EXISTS incoming_emails (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_email TEXT NOT NULL,
+      subject TEXT,
+      body TEXT,
+      body_hash TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','processing','done','failed')),
+      error TEXT,
+      claimed_at TEXT,
+      worker_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(from_email, subject, body_hash)
+    );
+    """
+    idx = """
+    CREATE INDEX IF NOT EXISTS idx_incoming_emails_status_created
+      ON incoming_emails(status, created_at);
+    """
+    with Database(DB_PATH) as db:
+        db.execute(ddl)
+        db.execute(idx)
 
+def _hash_body(body: str) -> str:
+    body = body or ""
+    return hashlib.sha256(body.encode("utf-8", "ignore")).hexdigest()
+
+def enqueue_email(from_email: str, subject, body: str):
+    now = _now_iso()
+    bh = _hash_body(body)
+    sql = """
+    INSERT INTO incoming_emails (from_email, subject, body, body_hash, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, 'pending', ?, ?)
+    """
+    try:
+        with Database(DB_PATH) as db:
+            db.execute(sql, (from_email or "", subject, body, bh, now, now))
+    except Exception as e:
+        # 唯一约束冲突：视为已入队的重复邮件，忽略即可
+        if "UNIQUE constraint failed" in str(e):
+            logger.info("去重命中，邮件已存在队列（跳过）")
+        else:
+            raise
+
+def claim_pending_email(worker_id: str):
+    # 使用事务避免并发竞争
+    with Database(DB_PATH) as db:
+        db.execute("BEGIN IMMEDIATE")
+        cur = db.execute(
+            "SELECT id FROM incoming_emails WHERE status='pending' ORDER BY created_at LIMIT 1"
+        )
+        row = cur.fetchone() if cur else None
+        if not row:
+            db.execute("COMMIT")
+            return None
+        email_id = row["id"]
+        now = _now_iso()
+        # 二次条件防止并发更新
+        db.execute(
+            "UPDATE incoming_emails SET status='processing', claimed_at=?, worker_id=?, updated_at=? "
+            "WHERE id=? AND status='pending'",
+            (now, worker_id, now, email_id),
+        )
+        db.execute("COMMIT")
+    # 取完整记录返回
+    with Database(DB_PATH) as db:
+        cur = db.execute("SELECT * FROM incoming_emails WHERE id=?", (email_id,))
+        return dict(cur.fetchone()) if cur else None
+
+# 查找pending和processing有多少个
+def count_pending_processing():
+    with Database(DB_PATH) as db:
+        count = db.execute(
+            "SELECT COUNT(*) AS c FROM incoming_emails WHERE status IN ('pending', 'processing')"
+        )
+        return count.fetchone()["c"]
+
+def mark_email_done(email_id: int):
+    with Database(DB_PATH) as db:
+        db.execute(
+            "UPDATE incoming_emails SET status='done', updated_at=?, error=NULL WHERE id=?",
+            (_now_iso(), email_id),
+        )
+
+def mark_email_failed(email_id: int, error: str):
+    with Database(DB_PATH) as db:
+        db.execute(
+            "UPDATE incoming_emails SET status='failed', updated_at=?, error=? WHERE id=?",
+            (_now_iso(), str(error)[:1000], email_id),
+        )
+
+def requeue_stale_processing(visibility_timeout_seconds: int = 900):
+    # 将超时未完成的 processing 记录回滚为 pending
+    threshold = (datetime.datetime.now() - datetime.timedelta(seconds=visibility_timeout_seconds)).strftime("%Y-%m-%d %H:%M:%S")
+    with Database(DB_PATH) as db:
+        db.execute(
+            "UPDATE incoming_emails SET status='pending', updated_at=? "
+            "WHERE status='processing' AND (claimed_at IS NULL OR claimed_at < ?)",
+            (_now_iso(), threshold),
+        )
+
+# 查询user的balancce余额
+def check_balance(email):
+    with Database(DB_PATH) as db:
+        cur = db.execute("SELECT balance FROM users WHERE email=?", (email,))
+        balance = cur.fetchone()
+        return balance["balance"]
+
+# 扣除balance余额
+def debit_balance(email, amount):
+    with Database(DB_PATH) as db:
+        db.execute("UPDATE users SET balance=balance-? WHERE email=?", (amount, email))
+    return check_balance(email)
+def consume_email_queue_batch(max_n: int = 1, worker_id = None):
+    """
+    单次消费最多 max_n 条。建议由调度器高频触发。
+    """
+    wid = worker_id or os.getenv("HOSTNAME") or "worker"
+    requeue_stale_processing()
+    processed = 0
+    while processed < max_n:
+        msg = claim_pending_email(wid)
+        if not msg:
+            break
+        try:
+            # 复用已有的处理逻辑
+            process_email_job(msg.get("body"), msg.get("from_email"))
+            mark_email_done(msg["id"])
+        except Exception as e:
+            logger.exception(f"消费失败 id={msg['id']}: {e}")
+            mark_email_failed(msg["id"], str(e))
+        processed += 1
+    if processed:
+        logger.info(f"消费完成，本次处理 {processed} 条")
 
 def _now_iso():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -91,13 +228,6 @@ def update_next_run(job):
                 (next_time, _now_iso(), job["id"]),
             )
 
-
-def debit_balance(user_id: int, amount: float):
-    with Database(DB_PATH) as db:
-        db.execute(
-            "UPDATE users SET balance=balance-?, updated_at=? WHERE id=?",
-            (amount, _now_iso(), user_id),
-        )
 
 
 def credit_balance(user_id: int, amount: float):
@@ -207,7 +337,29 @@ def process_job(job):
     finally:
         update_next_run(job)
 
-
+# 消耗处理
+def consume_balance(email, amount):
+    balance = debit_balance(email, amount)
+    # 发送余额邮件
+    info = f"余额还有{balance}"
+    user_name = os.getenv("EMAIL_USER")
+    password = os.getenv("EMAIL_PASSWORD")
+    subject = info
+    body_html = info
+    to_email = email
+    send_email(
+            smtp_host="smtp.qq.com",
+            smtp_port=587,
+            username=user_name,
+            password=password,
+            subject=subject,
+            body_text="股票多智能体回执",
+            body_html=body_html,
+            from_addr=user_name,
+            to_addrs=[to_email],
+            use_tls=True,
+            attachments=[],
+    )
 # 处理直接通过邮件触发的任务
 def process_email_job(email_body, from_email):
     try:
@@ -280,6 +432,10 @@ def process_email_job(email_body, from_email):
         }
 
         run_analysis(from_email, ticker_identifier, temp_config)
+        # 扣除消耗
+        consume_balance(from_email, research_depth)
+
+        
     except Exception as e:
         logger.exception(f"处理邮件任务失败: {e}")
 

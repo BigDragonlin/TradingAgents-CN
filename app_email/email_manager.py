@@ -1,5 +1,5 @@
 from app_email.send_email.sender import send_email
-from app_email.receice_email.receiver import receive_emails
+from app_email.receive_email.receiver import receive_emails
 from tradingagents.config.database_manager import DatabaseManager
 
 class EmailManager:

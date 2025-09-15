@@ -2,7 +2,7 @@ import imaplib
 import time
 import os
 from types import SimpleNamespace
-from app_email.receice_email.receiver import receive_emails
+from app_email.receive_email.receiver import receive_emails
 import pytest
 
 
@@ -46,7 +46,7 @@ class ErrorIMAP4(FakeIMAP4):
 
 
 def test_receive_basic_success(monkeypatch):
-    from app_email.receice_email.receiver import receive_emails
+    from app_email.receive_email.receiver import receive_emails
 
     def fake_imap_ctor(host, port=None):
         assert host == "imap.example.com"
@@ -73,7 +73,7 @@ def test_receive_basic_success(monkeypatch):
 
 
 def test_receive_login_error(monkeypatch):
-    from app_email.receice_email.receiver import receive_emails, EmailReceiveError
+    from app_email.receive_email.receiver import receive_emails, EmailReceiveError
 
     def fake_imap_ctor(host, port=None):
         return ErrorIMAP4(host, port)
