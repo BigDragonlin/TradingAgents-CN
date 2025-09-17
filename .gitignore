@@ -6,6 +6,9 @@ __pycache__/
 *.pyd
 .Python
 *.egg-info/
+.venv/
+
+django_demo/
 
 # 环境变量文件 (包含敏感API密钥)
 .env
