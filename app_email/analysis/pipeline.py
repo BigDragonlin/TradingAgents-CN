@@ -141,9 +141,10 @@ class AnalysisPipeline:
 
     def setup_message_buffer(self) -> MessageBuffer:
         message_buffer = MessageBuffer()
+        # 装饰器将信息添加到log_file中
         self._decorate_message_buffer(message_buffer)
 
-        # 系统信息与初始状态
+        # 系统信息与初始状态,系统级prompt
         message_buffer.add_message("System", f"Selected ticker: {self.selections['ticker']}")
         message_buffer.add_message("System", f"Analysis date: {self.selections['analysis_date']}")
         message_buffer.add_message("System", f"Selected analysts: {', '.join(analyst.value for analyst in self.selections['analysts'])}")
@@ -193,6 +194,37 @@ class AnalysisPipeline:
             logger.error(f"❌ 数据预获取过程中发生错误: {str(e)}")
             logger.warning("💡 请检查网络连接或稍后重试")
             return False
+        
+    
+    def extract_content_string(content):
+        """
+        从各种消息格式中提取字符串内容
+        Extract string content from various message formats
+        
+        Args:
+            content: 消息内容，可能是字符串、列表或其他格式
+        
+        Returns:
+            str: 提取的字符串内容
+        """
+        if isinstance(content, str):
+            return content
+        elif isinstance(content, list):
+            # Handle Anthropic's list format
+            text_parts = []
+            for item in content:
+                if isinstance(item, dict):
+                    item_type = item.get('type')  # 缓存type值
+                    if item_type == 'text':
+                        text_parts.append(item.get('text', ''))
+                    elif item_type == 'tool_use':
+                        tool_name = item.get('name', 'unknown')  # 缓存name值
+                        text_parts.append(f"[Tool: {tool_name}]")
+                else:
+                    text_parts.append(str(item))
+            return ' '.join(text_parts)
+        else:
+            return str(content)
 
     # ------------------------
     # Streaming analysis
@@ -218,19 +250,29 @@ class AnalysisPipeline:
 
         for chunk in graph.graph.stream(init_agent_state, **args):
             if len(chunk["messages"]) > 0:
+                # 获取最后一条消息
                 last_message = chunk["messages"][-1]
-                content = getattr(last_message, "content", str(last_message))
-                if not isinstance(content, str):
-                    content = str(content)
-                msg_type = "Reasoning" if hasattr(last_message, "content") else "System"
+                
+                # 提取消息内容和类型
+                if hasattr(last_message, "content"):
+                    content = self.extract_content_string(last_message.content)  # Use the helper function
+                    msg_type = "Reasoning"
+                else:
+                    content = str(last_message)
+                    msg_type = "System"
+
+                # 添加消息到缓冲区
                 message_buffer.add_message(msg_type, content)
+
+                # 如果有工具调用，添加到缓冲区
                 if hasattr(last_message, "tool_calls"):
                     for tool_call in last_message.tool_calls:
                         if isinstance(tool_call, dict):
-                            message_buffer.add_tool_call(tool_call.get("name", "unknown"), tool_call.get("args", {}))
+                            message_buffer.add_tool_call(tool_call["name"], tool_call["args"])
                         else:
-                            message_buffer.add_tool_call(getattr(tool_call, "name", "unknown"), getattr(tool_call, "args", {}))
+                            message_buffer.add_tool_call(tool_call.name, tool_call.args)
                 
+                # -------------------市场分析
                 if "market_report" in chunk and chunk["market_report"]:
                     # 只在第一次完成时显示提示
                     if "market_report" not in completed_analysts:
@@ -319,7 +361,6 @@ class AnalysisPipeline:
                         message_buffer.update_agent_status(agent, "in_progress")
 
                 
-                # Research Team - Handle Investment Debate State
                 # -------------------研究团队决策
                 if (
                     "investment_debate_state" in chunk
@@ -327,33 +368,33 @@ class AnalysisPipeline:
                 ):
                     debate_state = chunk["investment_debate_state"]
 
-                    # Update Bull Researcher status and report
+                    # -------------------多头研究员分析
                     if "bull_history" in debate_state and debate_state["bull_history"]:
                         # 显示研究团队开始工作
                         if "research_team_started" not in completed_analysts:
                             logger.info("🔬 研究团队开始深度分析...")
                             completed_analysts.add("research_team_started")
 
-                        # Keep all research team members in progress
+                        # 更新研究团队成员状态为in_progress
                         for agent in ["Bull Researcher", "Bear Researcher", "Research Manager", "Trader"]:
                             message_buffer.update_agent_status(agent, "in_progress")
-                        # Extract latest bull response
+                        # 提取最新多头研究员响应
                         bull_responses = debate_state["bull_history"].split("\n")
                         latest_bull = bull_responses[-1] if bull_responses else ""
                         if latest_bull:
                             message_buffer.add_message("Reasoning", latest_bull)
-                            # Update research report with bull's latest analysis
+                            # 更新带有多头研究员分析的报告
                             message_buffer.update_report_section(
                                 "investment_plan",
                                 f"### Bull Researcher Analysis\n{latest_bull}",
                             )
 
-                    # Update Bear Researcher status and report
+                    # -------------------空头研究员分析
                     if "bear_history" in debate_state and debate_state["bear_history"]:
-                        # Keep all research team members in progress
+                        # 更新研究团队成员状态为in_progress
                         for agent in ["Bull Researcher", "Bear Researcher", "Research Manager", "Trader"]:
                             message_buffer.update_agent_status(agent, "in_progress")
-                        # Extract latest bear response
+                        # 提取最新空头研究员响应
                         bear_responses = debate_state["bear_history"].split("\n")
                         latest_bear = bear_responses[-1] if bear_responses else ""
                         if latest_bear:
@@ -374,27 +415,27 @@ class AnalysisPipeline:
                             logger.info("🔬 研究团队分析完成")
                             completed_analysts.add("research_team")
 
-                        # Keep all research team members in progress until final decision
+                        # 更新研究团队成员状态为in_progress直到最终决策
                         for agent in ["Bull Researcher", "Bear Researcher", "Research Manager", "Trader"]:
                             message_buffer.update_agent_status(agent, "in_progress")
                         message_buffer.add_message(
                             "Reasoning",
                             f"Research Manager: {debate_state['judge_decision']}",
                         )
-                        # Update research report with final decision
+                        # 更新带有多头研究员分析的报告
                         message_buffer.update_report_section(
                             "investment_plan",
                             f"{message_buffer.report_sections['investment_plan']}\n\n### Research Manager Decision\n{debate_state['judge_decision']}",
                         )
-                        # Mark all research team members as completed
+                        # 更新研究团队成员状态为completed
                         for agent in ["Bull Researcher", "Bear Researcher", "Research Manager", "Trader"]:
                             message_buffer.update_agent_status(agent, "completed")
-                        # Set first risk analyst to in_progress
+                        # 更新风险分析师状态为in_progress
                         message_buffer.update_agent_status(
                             "Risky Analyst", "in_progress"
                         )
                 
-                # Trading Team
+                # -------------------交易团队
                 if (
                     "trader_investment_plan" in chunk
                     and chunk["trader_investment_plan"]
@@ -415,11 +456,11 @@ class AnalysisPipeline:
                     # Set first risk analyst to in_progress
                     message_buffer.update_agent_status("Risky Analyst", "in_progress")
 
-                # Risk Management Team - Handle Risk Debate State
+                # -------------------风险管理团队
                 if "risk_debate_state" in chunk and chunk["risk_debate_state"]:
                     risk_state = chunk["risk_debate_state"]
 
-                    # Update Risky Analyst status and report
+                    # -------------------风险分析师分析
                     if (
                         "current_risky_response" in risk_state
                         and risk_state["current_risky_response"]
@@ -442,7 +483,7 @@ class AnalysisPipeline:
                             f"### Risky Analyst Analysis\n{risk_state['current_risky_response']}",
                         )
 
-                    # Update Safe Analyst status and report
+                    # -------------------保守分析师分析
                     if (
                         "current_safe_response" in risk_state
                         and risk_state["current_safe_response"]
@@ -460,7 +501,7 @@ class AnalysisPipeline:
                             f"### Safe Analyst Analysis\n{risk_state['current_safe_response']}",
                         )
 
-                    # Update Neutral Analyst status and report
+                    # -------------------中性分析师分析
                     if (
                         "current_neutral_response" in risk_state
                         and risk_state["current_neutral_response"]
@@ -478,7 +519,7 @@ class AnalysisPipeline:
                             f"### Neutral Analyst Analysis\n{risk_state['current_neutral_response']}",
                         )
 
-                    # Update Portfolio Manager status and final decision
+                    # -------------------投资经理分析
                     if "judge_decision" in risk_state and risk_state["judge_decision"]:
                         # 显示风险管理团队完成
                         if "risk_management" not in completed_analysts:
@@ -492,12 +533,12 @@ class AnalysisPipeline:
                             "Reasoning",
                             f"Portfolio Manager: {risk_state['judge_decision']}",
                         )
-                        # Update risk report with final decision only
+                        # 更新带有多头研究员分析的报告
                         message_buffer.update_report_section(
                             "final_trade_decision",
                             f"### Portfolio Manager Decision\n{risk_state['judge_decision']}",
                         )
-                        # Mark risk analysts as completed
+                        # 更新风险分析师状态为completed
                         message_buffer.update_agent_status("Risky Analyst", "completed")
                         message_buffer.update_agent_status("Safe Analyst", "completed")
                         message_buffer.update_agent_status(
