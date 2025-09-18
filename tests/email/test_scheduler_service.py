@@ -36,3 +36,6 @@ def test_consume_balance(mocker):
     assert list["to_addrs"] == ["test@test.com"]
     assert list["subject"] == "余额还有100"
     assert list["body_html"] == "余额还有100"
+
+def test_enqueue_email(mocker):
+    enqueue_email("test@test.com", "test_subject", "test_body")

@@ -127,9 +127,8 @@ class AnalysisPipeline:
                         }
                         file_name = chinese_filenames.get(section_name, f"{section_name}.md")
                         file_path = self.report_dir / file_name
-                        # 对最终投资决策采用覆盖写入，避免流式阶段多次叠加导致重复
-                        # 其他报告同样采用覆盖写入，保持文件内容等于当前报告状态
-                        file_path.write_text(content_to_write, encoding="utf-8")
+                        with open(file_path, "w", encoding="utf-8") as f:
+                            f.write(content)
             return wrapper
 
         # 装饰器将信息添加到log_file中
@@ -255,7 +254,9 @@ class AnalysisPipeline:
                 
                 # 提取消息内容和类型
                 if hasattr(last_message, "content"):
-                    content = self.extract_content_string(last_message.content)  # Use the helper function
+
+                    content = getattr(last_message, "content", str(last_message))
+                    # content = self.extract_content_string(last_message.content)  # Use the helper function
                     msg_type = "Reasoning"
                 else:
                     content = str(last_message)
@@ -560,10 +561,16 @@ class AnalysisPipeline:
         logger.info("正在处理投资信号...")
         final_state = trace[-1]
         _decision = self.graph.process_signal(final_state["final_trade_decision"], self.selections['ticker'])
+
         logger.info("🤖 投资信号处理完成")
+        
+        # 更新所有分析师状态为completed
         for agent in self.message_buffer.agent_status:
             self.message_buffer.update_agent_status(agent, "completed")
+
         self.message_buffer.add_message("Analysis", f"Completed analysis for {self.selections['analysis_date']}")
+
+        # 更新最后报告部分
         for section in list(self.message_buffer.report_sections.keys()):
             if section in final_state:
                 self.message_buffer.update_report_section(section, final_state[section])

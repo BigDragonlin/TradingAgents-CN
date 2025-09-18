@@ -46,7 +46,8 @@ def _hash_body(body: str) -> str:
 
 def enqueue_email(from_email: str, subject, body: str):
     now = _now_iso()
-    bh = _hash_body(body)
+    # 临时加个这个,无意义
+    bh = _hash_body(now + body)
     sql = """
     INSERT INTO incoming_emails (from_email, subject, body, body_hash, status, created_at, updated_at)
     VALUES (?, ?, ?, ?, 'pending', ?, ?)
